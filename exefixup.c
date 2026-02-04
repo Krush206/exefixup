@@ -1,12 +1,9 @@
-/*
+/* 
  * exefixup.c v0.02 Andrew Kieschnick <andrewk@mail.utexas.edu>
  *
  * displays PS-X EXE header information
  * offers to fix incorrect t_size
  * offers to pad to 2048-byte boundary for cd-rom use
- *
- * THIS SOURCE WAS MODIFIED (SLIGHTLY) TO WORK UNDER DOS
- * IF YOU USE UNIX, GET THE THE UNMODIFIED SOURCE
  *
  *
  * This program is free software; you can redistribute it and/or modify
@@ -25,277 +22,184 @@
  *
  */
 
-#include <ctype.h>
 #include <stdio.h>
 #include <string.h>
+#include <ctype.h>
 
-#define VERBOSE 1
-
-unsigned int char2intExec(unsigned char *fooExec)
+unsigned int char2int(unsigned char *foo)
 {
-	return fooExec[3]*16777216 + fooExec[2]*65536 + fooExec[1]*256 + fooExec[0];
+  return foo[3]*16777216 + foo[2]*65536 + foo[1]*256 + foo[0];
 }
 
-void int2charExec(unsigned int fooExec, unsigned char *barEXEC)
+void int2char(unsigned int foo, unsigned char *bar)
 {
-	barEXEC[3]=fooExec>>24;
-	barEXEC[2]=fooExec>>16;
-	barEXEC[1]=fooExec>>8;
-	barEXEC[0]=fooExec;
+  bar[3]=foo>>24;
+  bar[2]=foo>>16;
+  bar[1]=foo>>8;
+  bar[0]=foo;
 }
 
-
-int main(int argc, char *argv[])
+void usage(void)
 {
-	char filenameEXEC[256];
-	FILE *exeHnd;
-	FILE *outHnder;
-	unsigned char dataEXEC[9];
-	// char filename[256];
-	int i;
-	unsigned int headerDATA[12];
-	unsigned int sizeEXEC;
-	unsigned int padsizeEXE;
-	int psxExeCreated = 0;
-	//char yesno='Z';
+  printf("Usage: exefixup <filename>\n\n");
+  printf("\t<filename>\ta PS-X EXE file\n\n");
+  printf("\tdisplays EXE header\n");
+  printf("\toffers to correct a wrong t_size\n");
+  printf("\toffers to pad to 2048-byte boundary\n\n");
+  exit(0);
+}
 
-	unlink("psx.exe"); // psx.exe must be deleted first!
+void main(int argc, char *argv[])
+{
+  FILE *exe;
+  FILE *out;
+  unsigned char data[8];
+  char filename[256];
+  int i;
+  unsigned int header_data[12];
+  unsigned int size;
+  unsigned int padsize;
+  char yesno='Z';
 
-	if (argc!=2)
-            return 1;
+  printf("exefixup v0.02 Andrew Kieschnick <andrewk@mail.utexas.edu>\n\n");
 
-	strncpy(filenameEXEC,argv[1],256);
+  if (argc!=2)
+    usage();
 
-	exeHnd=fopen(filenameEXEC, "rb");
+  strncpy(filename,argv[1],256);
 
-	if (!exeHnd)
-	{
-		printf("ERROR: Can't open %s\n",filenameEXEC);
-		fflush(stdout);
-		return (1);
-	}
+  exe=fopen(filename, "r");
 
-	for(i=0;i<8;i++)
-		fscanf(exeHnd, "%c", &dataEXEC[i]);
-	dataEXEC[sizeof dataEXEC - 1]=0;
+  strcat(filename, "-fixed"); /* output filename is same as input filename, but with -fix appended */
 
-	if (strncmp((char *) dataEXEC, "PS-X EXE", sizeof dataEXEC - 1))
-	{
-		printf("ERROR: Not a PS-X EXE file\n");
-		fflush(stdout);
+  if (!exe)
+    {
+      printf("ERROR: Can't open %s\n",filename);
+      exit(-1);
+    }
 
-		unlink(filenameEXEC);
+  for(i=0;i<8;i++)
+    fscanf(exe, "%c", &data[i]);
+  data[8]=0;
 
-		return (1);
-	}
+  if (strncmp(data, "PS-X EXE", 8))
+    {
+      printf("ERROR: Not a PS-X EXE file\n");
+      exit(-1);
+    }
+  
+  for(i=0;i<12;i++)
+    {
+      fscanf(exe, "%c", &data[0]);
+      fscanf(exe, "%c", &data[1]);
+      fscanf(exe, "%c", &data[2]);
+      fscanf(exe, "%c", &data[3]);
+      header_data[i]=char2int(data);
+    }
 
-	for(i=0;i<12;i++)
-	{
-		fscanf(exeHnd, "%c", &dataEXEC[0]);
-		fscanf(exeHnd, "%c", &dataEXEC[1]);
-		fscanf(exeHnd, "%c", &dataEXEC[2]);
-		fscanf(exeHnd, "%c", &dataEXEC[3]);
-		headerDATA[i]=char2intExec(dataEXEC);
-	}
-
-	if(VERBOSE)
-	{
-		printf("id\tPS-X EXE\n");
-		printf("text\t0x%.8x\n", headerDATA[0]);
-		printf("data\t0x%.8x\n", headerDATA[1]);
-		printf("pc0\t0x%.8x\n", headerDATA[2]);
-		printf("gp0\t0x%.8x\n", headerDATA[3]);
-		printf("t_addr\t0x%.8x\n", headerDATA[4]);
-		printf("t_size\t0x%.8x\n", headerDATA[5]);
-		printf("d_addr\t0x%.8x\n", headerDATA[6]);
-		printf("d_size\t0x%.8x\n", headerDATA[7]);
-		printf("b_addr\t0x%.8x\n", headerDATA[8]);
-		printf("b_size\t0x%.8x\n", headerDATA[9]);
-		printf("s_addr\t0x%.8x\n", headerDATA[10]);
-		printf("s_size\t0x%.8x\n\n", headerDATA[11]);
-	}
-
-	/*
+  printf("id\tPS-X EXE\n");
+  printf("text\t0x%.8x\n", header_data[0]);
+  printf("data\t0x%.8x\n", header_data[1]);
+  printf("pc0\t0x%.8x\n", header_data[2]);
+  printf("gp0\t0x%.8x\n", header_data[3]);
+  printf("t_addr\t0x%.8x\n", header_data[4]);
+  printf("t_size\t0x%.8x\n", header_data[5]);
+  printf("d_addr\t0x%.8x\n", header_data[6]);
+  printf("d_size\t0x%.8x\n", header_data[7]);
+  printf("b_addr\t0x%.8x\n", header_data[8]);
+  printf("b_size\t0x%.8x\n", header_data[9]);
+  printf("s_addr\t0x%.8x\n", header_data[10]);
+  printf("s_size\t0x%.8x\n\n", header_data[11]);
 
   fseek(exe, 0, SEEK_END);
-
+  
   size=ftell(exe)-2048;
 
   padsize=2048-(size%2048);
 
-
-
-	 */
-
-
-
-
-	fseek(exeHnd, 0, SEEK_END);
-
-	sizeEXEC=ftell(exeHnd)-2048;
-
-	if(VERBOSE)
-		printf("sizeEXEC\t %d\n", sizeEXEC);
-
-
-	padsizeEXE=2048-(sizeEXEC%2048);
-
-	if(VERBOSE)
-		printf("padsizeEXE\t %d\n", padsizeEXE);
-
-
-	if (padsizeEXE!=2048)
+  if (padsize!=2048)
+    {
+      printf("WARNING: EXE size is not a multiple of 2048!\n");
+      while ((yesno!='Y')&&(yesno!='N'))
 	{
-		if(VERBOSE)
-			printf("Creating psx.exe: Fixing EXE size to a multiple of 2048!\n");
-
-		/*    while ((yesno!='Y')&&(yesno!='N'))
-	{
-          printf("Write a padded EXE (to psx.exe) ? ");
+	  printf("Write a padded EXE (to %s) ? ",filename);
 	  scanf("%c%*c", &yesno);
 	  yesno=toupper(yesno);
 	}
       if (yesno=='Y')
-		 */
-		{
-			outHnder = fopen("psx.exe", "wb");
+	{
+	  out = fopen(filename, "w");
+	  
+	  header_data[5]=size+padsize;
 
-			if (!outHnder)
-			{
-				printf("ERROR in padsizeEXE: Can't open psx.exe");
-				return (1);
-			}
+	  fprintf(out, "PS-X EXE");
+	  for(i=0;i<12;i++)
+	    {
+	      int2char(header_data[i], data);
+	      fprintf(out, "%c%c%c%c", data[0], data[1], data[2], data[3]);
+	    }
+	  
+	  fseek(exe, 56, SEEK_SET);
 
-			headerDATA[5]=sizeEXEC+padsizeEXE;
-
-			fprintf(outHnder, "PS-X EXE");
-			for(i=0;i<12;i++)
-			{
-				int2charExec(headerDATA[i], dataEXEC);
-				fprintf(outHnder, "%c%c%c%c", dataEXEC[0], dataEXEC[1], dataEXEC[2], dataEXEC[3]);
-			}
-
-			fseek(exeHnd, 56, SEEK_SET);
-
-			for(i=0;i<sizeEXEC+1992;i++)
-			{
-				fscanf(exeHnd, "%c", &dataEXEC[0]);
-				fprintf(outHnder, "%c", dataEXEC[0]);
-			}
-			for(i=0;i<padsizeEXE;i++)
-				fprintf(outHnder, "%c", 0);
-
-			sizeEXEC=headerDATA[5];
-			fclose(outHnder);
-			psxExeCreated++;
-		}
+	  for(i=0;i<size+1992;i++)
+	    {
+	      fscanf(exe, "%c", &data[0]);
+	      fprintf(out, "%c", data[0]);
+	    }
+	  for(i=0;i<padsize;i++)
+	    fprintf(out, "%c", 0);
+	  
+	  size=header_data[5];
+	  fclose(out);	  
 	}
-	else if(VERBOSE)
-		printf("padsizeEXE already 2048 \n");
-
-	// yesno='Z';
-
-	if (sizeEXEC!=headerDATA[5])
+    }
+  
+  yesno='Z';
+  
+  if (size!=header_data[5])
+    {
+      printf("WARNING: EXE header t_size does not match filesize-2048\n");
+      printf("EXE header:\t 0x%.8x bytes\n", header_data[5]);
+      printf("filesize-2048:\t 0x%.8x bytes\n", size);
+      while ((yesno!='Y')&&(yesno!='N'))
 	{
-		if(VERBOSE)
-		{
-			printf("2 Fixing: EXE header t_size does not match filesize-2048\n");
-			printf("EXE header:\t 0x%.8x bytes\n", headerDATA[5]);
-			printf("filesize-2048:\t 0x%.8x bytes\n", sizeEXEC);
-		}
-
-		/*    while ((yesno!='Y')&&(yesno!='N'))
-	{
-          printf("Write a corrected EXE (to psx.exe) ? ");
+	  printf("Write a corrected EXE (to %s) ? ",filename);
 	  scanf("%c%*c", &yesno);
 	  yesno=toupper(yesno);
 	}
       if (yesno=='Y')
-		 */
-		{
-			outHnder = fopen("psx.exe", "wb");
-
-			if (!outHnder)
-			{
-				printf("ERROR in sizeEXEC: Can't open psx.exe");
-				fflush(stdout);
-				return 1;
-			}
-
-			fprintf(outHnder, "PS-X EXE");
-			for(i=0;i<5;i++)
-			{
-				int2charExec(headerDATA[i], dataEXEC);
-				fprintf(outHnder, "%c%c%c%c", dataEXEC[0], dataEXEC[1], dataEXEC[2], dataEXEC[3]);
-			}
-			int2charExec(sizeEXEC, dataEXEC);
-			fprintf(outHnder, "%c%c%c%c", dataEXEC[0], dataEXEC[1], dataEXEC[2], dataEXEC[3]);
-			for(i=6;i<12;i++)
-			{
-				int2charExec(headerDATA[i], dataEXEC);
-				fprintf(outHnder, "%c%c%c%c", dataEXEC[0], dataEXEC[1], dataEXEC[2], dataEXEC[3]);
-			}
-
-			fseek(exeHnd, 56, SEEK_SET);
-
-			for(i=0;i<sizeEXEC+1992;i++)
-			{
-				fscanf(exeHnd, "%c", &dataEXEC[0]);
-				fprintf(outHnder, "%c", dataEXEC[0]);
-			}
-			fclose(outHnder);
-		}
-		psxExeCreated++;
-	}
-	else if(VERBOSE)
-		printf("sizeEXEC already equal to headerDATA[5] \n");
-
-	if(VERBOSE)
-		printf("exeFixUp_main finished\n");
-
-	fclose(exeHnd);
-
-	if(psxExeCreated>0)
 	{
+	  out = fopen(filename, "w");
+	  
+	  fprintf(out, "PS-X EXE");
+	  for(i=0;i<5;i++)
+	    {
+	      int2char(header_data[i], data);
+	      fprintf(out, "%c%c%c%c", data[0], data[1], data[2], data[3]);
+	    }
+	  int2char(size, data);
+	  fprintf(out, "%c%c%c%c", data[0], data[1], data[2], data[3]);
+	  for(i=6;i<12;i++)
+	    {
+	      int2char(header_data[i], data);
+	      fprintf(out, "%c%c%c%c", data[0], data[1], data[2], data[3]);
+	    }
+	  
+	  fseek(exe, 56, SEEK_SET);
 
-		if(VERBOSE)
-		{
-			printf("%s removed.\n", filenameEXEC);
-		}
-
-
-		unlink(filenameEXEC);
-
-
-
+	  for(i=0;i<size+1992;i++)
+	    {
+	      fscanf(exe, "%c", &data[0]);
+	      fprintf(out, "%c", data[0]);
+	    }
+	  fclose(out);
 	}
-	else
-	{
-
-
-		int ret = rename(filenameEXEC, "psx.exe");
-
-		if(VERBOSE)
-			printf("%s renamed to psx.exe\n", filenameEXEC);
-
-		if(ret == 0)
-		{
-			if(VERBOSE)
-				printf("File renamed successfully\n");
-		}
-		else
-		{
-			printf("Error: unable to rename the file");
-			fflush(stdout);
-			return 1;
-		}
-	}
-
-
-
-	printf("\nOutput: psx.exe built correctly!\n");
-
-	fflush(stdout);
-	return 0;
-
+    }
+  fclose(exe);
 }
+
+
+  
+  
+
+  
