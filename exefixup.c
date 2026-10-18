@@ -125,7 +125,7 @@ int main(int argc, char *argv[])
       while ((yesno!='Y')&&(yesno!='N'))
 	{
 	  printf("Write a padded EXE (to %s) ? ",filename);
-	  scanf("%c%*c", &yesno);
+	  scanf("%c", &yesno);
 	  yesno=toupper(yesno);
 	}
       if (yesno=='Y')
