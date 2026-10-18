@@ -24,6 +24,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 #include <ctype.h>
 
 unsigned int char2int(unsigned char *foo)
@@ -49,11 +50,11 @@ void usage(void)
   exit(0);
 }
 
-void main(int argc, char *argv[])
+int main(int argc, char *argv[])
 {
   FILE *exe;
   FILE *out;
-  unsigned char data[8];
+  unsigned char data[9]; /* room for the NUL terminator set below */
   char filename[256];
   int i;
   unsigned int header_data[12];
@@ -66,11 +67,10 @@ void main(int argc, char *argv[])
   if (argc!=2)
     usage();
 
-  strncpy(filename,argv[1],256);
+  strncpy(filename,argv[1],sizeof(filename)-7);
+  filename[sizeof(filename)-7]=0;
 
-  exe=fopen(filename, "r");
-
-  strcat(filename, "-fixed"); /* output filename is same as input filename, but with -fix appended */
+  exe=fopen(filename, "rb");
 
   if (!exe)
     {
@@ -78,11 +78,13 @@ void main(int argc, char *argv[])
       exit(-1);
     }
 
+  strcat(filename, "-fixed"); /* output filename is same as input filename, but with -fixed appended */
+
   for(i=0;i<8;i++)
     fscanf(exe, "%c", &data[i]);
   data[8]=0;
 
-  if (strncmp(data, "PS-X EXE", 8))
+  if (strncmp((char *)data, "PS-X EXE", 8))
     {
       printf("ERROR: Not a PS-X EXE file\n");
       exit(-1);
@@ -128,7 +130,7 @@ void main(int argc, char *argv[])
 	}
       if (yesno=='Y')
 	{
-	  out = fopen(filename, "w");
+	  out = fopen(filename, "wb");
 	  
 	  header_data[5]=size+padsize;
 
@@ -169,7 +171,7 @@ void main(int argc, char *argv[])
 	}
       if (yesno=='Y')
 	{
-	  out = fopen(filename, "w");
+	  out = fopen(filename, "wb");
 	  
 	  fprintf(out, "PS-X EXE");
 	  for(i=0;i<5;i++)
